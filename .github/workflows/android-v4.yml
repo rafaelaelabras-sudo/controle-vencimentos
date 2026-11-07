@@ -1,0 +1,37 @@
+name: Build Android APK v4 icon
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native-vencimentos-project-v4.zip'
+      - '.github/workflows/android-v4.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack Android project
+        run: |
+          unzip -q native-vencimentos-project-v4.zip -d .
+          grep "applicationId 'br.com.rafaela.vencimentos.teste20261107v4'" native-vencimentos/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
+      - name: Build and verify APK
+        run: |
+          cd native-vencimentos
+          gradle --no-daemon assembleDebug
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | head -n 12
+      - uses: actions/upload-artifact@v4
+        with:
+          name: controle-vencimentos-teste-v4
+          path: native-vencimentos/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
