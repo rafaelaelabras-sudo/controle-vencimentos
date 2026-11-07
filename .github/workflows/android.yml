@@ -13,7 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unpack Android project
-        run: unzip -q native-vencimentos-project.zip -d .
+        run: |
+          unzip -q native-vencimentos-project.zip -d .
+          sed -i "s/applicationId 'br.com.rafaela.vencimentos'/applicationId 'br.com.rafaela.vencimentos.teste20261107'/" native-vencimentos/app/build.gradle
+          grep "applicationId 'br.com.rafaela.vencimentos.teste20261107'" native-vencimentos/app/build.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,14 +29,16 @@ jobs:
         run: |
           cd native-vencimentos
           gradle --no-daemon assembleDebug
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | head -n 5
       - uses: actions/upload-artifact@v4
         with:
-          name: controle-vencimentos-debug-apk
+          name: controle-vencimentos-debug-apk-v2
           path: native-vencimentos/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp native-vencimentos/app/build/outputs/apk/debug/app-debug.apk Controle-de-Vencimentos-teste.apk
-          gh release create teste-v1 Controle-de-Vencimentos-teste.apk --title 'Controle de Vencimentos — teste Android' --notes 'Versão experimental para testar notificações no Android; não é um lançamento final.' --prerelease || gh release upload teste-v1 Controle-de-Vencimentos-teste.apk --clobber
+          cp native-vencimentos/app/build/outputs/apk/debug/app-debug.apk Controle-de-Vencimentos-teste-v2.apk
+          gh release create teste-v2 Controle-de-Vencimentos-teste-v2.apk --title 'Controle de Vencimentos — teste Android v2' --notes 'Versão experimental com identificador separado. Verifique instalação e notificações antes de depender delas.' --prerelease || gh release upload teste-v2 Controle-de-Vencimentos-teste-v2.apk --clobber
