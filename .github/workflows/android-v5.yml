@@ -1,0 +1,43 @@
+name: Build Android APK v5 sound alerts
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native-vencimentos-project-v5.zip'
+      - '.github/workflows/android-v5.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack Android project
+        run: |
+          unzip -q native-vencimentos-project-v5.zip -d .
+          grep "applicationId 'br.com.rafaela.vencimentos.teste20261111v5'" native-vencimentos/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
+      - name: Build and verify APK
+        run: |
+          cd native-vencimentos
+          gradle --no-daemon assembleDebug
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | head -n 12
+      - uses: actions/upload-artifact@v4
+        with:
+          name: controle-vencimentos-v5-aviso-sonoro
+          path: native-vencimentos/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp native-vencimentos/app/build/outputs/apk/debug/app-debug.apk Controle-de-Vencimentos-v5-aviso-sonoro.apk
+          gh release create aviso-sonoro-v5 Controle-de-Vencimentos-v5-aviso-sonoro.apk --title 'Controle de Vencimentos — v5 aviso sonoro' --notes 'APK separado de teste: resumo diário por volta das 8h com som padrão para vencidas, hoje, amanhã e sem data. Não migra dados automaticamente; mantenha o APK anterior até conferir a importação. Som sujeito às permissões, canal, volume, Não Perturbe e otimizações do Android.' --prerelease || gh release upload aviso-sonoro-v5 Controle-de-Vencimentos-v5-aviso-sonoro.apk --clobber
