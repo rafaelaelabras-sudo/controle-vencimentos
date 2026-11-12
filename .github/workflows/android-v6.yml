@@ -1,0 +1,47 @@
+name: Build Android APK v6 repeating reminders
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native-vencimentos-project-v6.zip'
+      - '.github/workflows/android-v6.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack Android project
+        run: |
+          unzip -q native-vencimentos-project-v6.zip -d .
+          grep "applicationId 'br.com.rafaela.vencimentos.teste20261112v6'" native-vencimentos/app/build.gradle
+          grep "versionCode 6" native-vencimentos/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
+      - name: Build, verify signature and package identity
+        run: |
+          cd native-vencimentos
+          gradle --no-daemon assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='br.com.rafaela.vencimentos.teste20261112v6' versionCode='6' versionName='6.0-repeating-sound'" /tmp/badging.txt
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: controle-de-vencimentos-v6-avisos-repetidos
+          path: native-vencimentos/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp native-vencimentos/app/build/outputs/apk/debug/app-debug.apk Controle-de-Vencimentos-v6-avisos-repetidos.apk
+          gh release create avisos-repetidos-v6 Controle-de-Vencimentos-v6-avisos-repetidos.apk --title 'Controle de Vencimentos — v6 avisos repetidos' --notes 'APK nativo separado do v5. Verifica localmente às 8h, 12h, 16h e 20h (horário local), com WorkManager não exato. Precisa reimportar o backup no próprio aparelho; mantenha v5 até conferir quantidades e lista. Alertas dependem de permissão, canal, volume, Não Perturbe e restrições de bateria do Android.' --prerelease || gh release upload avisos-repetidos-v6 Controle-de-Vencimentos-v6-avisos-repetidos.apk --clobber
